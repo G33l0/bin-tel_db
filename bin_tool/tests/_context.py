@@ -1,5 +1,3 @@
-"""Make the application package importable from the tests."""
-
 import os
 import sys
 

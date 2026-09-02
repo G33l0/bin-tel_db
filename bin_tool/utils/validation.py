@@ -1,13 +1,3 @@
-"""Structural validation of BIN / IIN values.
-
-Scope note
-----------
-This module deliberately handles *only* the issuer identification number
-(the first 6 or 8 digits of a card number).  Anything longer than
-``MAX_BIN_DIGITS`` is rejected before it reaches the rest of the program, so
-full PANs, CVVs and expiry dates never enter the pipeline or the database.
-"""
-
 from __future__ import annotations
 
 import re
@@ -38,8 +28,6 @@ MII_INDUSTRIES = {
 
 @dataclass(frozen=True)
 class BinInput:
-    """Result of normalising one raw input value."""
-
     raw: str
     value: Optional[str]
     ok: bool
@@ -51,7 +39,6 @@ class BinInput:
 
 
 def looks_like_pan(digits: str) -> bool:
-    """True when a digit string is long enough to be a full card number."""
     return len(digits) >= 12
 
 
@@ -60,7 +47,6 @@ def normalize_bin(
     allowed_lengths: Iterable[int] = ALLOWED_BIN_LENGTHS,
     max_digits: int = MAX_BIN_DIGITS,
 ) -> BinInput:
-    """Normalise and structurally validate a single raw BIN value."""
     allowed = tuple(sorted(set(int(n) for n in allowed_lengths)))
     raw_text = "" if raw is None else str(raw).strip()
 
@@ -95,19 +81,12 @@ def normalize_bin(
 
 
 def mii_industry(bin_value: str) -> Optional[str]:
-    """Major Industry Identifier description for the first digit."""
     if not bin_value:
         return None
     return MII_INDUSTRIES.get(bin_value[0])
 
 
 def network_from_iin(bin_value: str) -> Optional[str]:
-    """Card network implied by published IIN range allocations.
-
-    Returns ``None`` when the prefix is unallocated or falls inside a range
-    that is shared by more than one network - the caller records ``unknown``
-    rather than guessing.
-    """
     digits = _NON_DIGITS.sub("", bin_value or "")
     if len(digits) < 4:
         return None
@@ -127,8 +106,6 @@ def network_from_iin(bin_value: str) -> Optional[str]:
         return "JCB"
     if two in (36, 38, 39) or 300 <= three <= 305 or four == 3095:
         return "Diners Club"
-    # 622126-622925 is issued by UnionPay but routed as Discover; genuinely
-    # ambiguous from the prefix alone, so report nothing.
     if six is not None and 622126 <= six <= 622925:
         return None
     if digits.startswith("6011") or two == 65 or 644 <= three <= 649:
@@ -141,11 +118,6 @@ def network_from_iin(bin_value: str) -> Optional[str]:
 
 
 def normalize_comparable(value: Optional[str]) -> str:
-    """Collapse a field value so equivalent spellings compare equal.
-
-    Used only for cross-provider agreement checks - the value written to the
-    database is always the provider's own spelling.
-    """
     if value is None:
         return ""
     text = str(value).strip().casefold()
@@ -153,14 +125,12 @@ def normalize_comparable(value: Optional[str]) -> str:
         return ""
     text = re.sub(r"^https?://", "", text)
     text = re.sub(r"^www\.", "", text).rstrip("/")
-    # Separators become spaces; other punctuation ("N.A." -> "na") is dropped.
     text = re.sub(r"[\-/_&+]+", " ", text)
     text = re.sub(r"[^\w\s]+", "", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
 def clean_value(value) -> str:
-    """Coerce a provider value to a stored string, or ``unknown``."""
     if value is None:
         return UNKNOWN
     if isinstance(value, bool):

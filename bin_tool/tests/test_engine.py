@@ -1,6 +1,6 @@
 import unittest
 
-from tests import _context  # noqa: F401
+from tests import _context
 from database.models import Status
 from engine import coverage_confidence, reconcile
 from providers.base import ProviderResponse

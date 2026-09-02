@@ -1,12 +1,3 @@
-# -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller build spec: produces a single-file Windows console executable.
-
-    python -m PyInstaller --clean --noconfirm bin_tool.spec
-
-The resulting dist\\BIN-TEL.exe creates config.json and the data\\ folders next
-to itself the first time it runs.
-"""
-
 block_cipher = None
 
 a = Analysis(

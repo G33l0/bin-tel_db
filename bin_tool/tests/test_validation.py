@@ -1,6 +1,6 @@
 import unittest
 
-from tests import _context  # noqa: F401
+from tests import _context
 from utils.validation import (
     clean_boolean,
     clean_country_code,
@@ -55,7 +55,7 @@ class NetworkTests(unittest.TestCase):
 
     def test_unallocated_and_ambiguous_return_none(self):
         self.assertIsNone(network_from_iin("999999"))
-        self.assertIsNone(network_from_iin("622200"))  # UnionPay/Discover overlap
+        self.assertIsNone(network_from_iin("622200"))
 
 
 class CleanerTests(unittest.TestCase):

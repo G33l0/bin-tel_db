@@ -1,14 +1,3 @@
-"""BIN-TEL DATABASE - BIN / IIN metadata tool.
-
-Interactive Windows-console tool for building a BIN/IIN metadata database from
-CSV/TXT input lists and from official or licensed reference datasets.
-
-Scope: this program works only with issuer identification numbers (6 or 8
-digits) and publicly documented issuer metadata. It does not accept, store or
-process full card numbers, CVVs, expiry dates or cardholder data, and it makes
-no attempt to determine whether any individual payment card is usable.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -20,31 +9,30 @@ if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
 
 try:
-    import rich  # noqa: F401
-except ImportError:  # pragma: no cover - dependency guard
+    import rich
+except ImportError:
     sys.stderr.write(
         "The 'rich' package is required.\n"
         "Install the dependencies first:  pip install -r requirements.txt\n"
     )
     raise SystemExit(2)
 
-import config as config_module  # noqa: E402
-from database.database import Database  # noqa: E402
-from database.models import Status  # noqa: E402
-from engine import ValidationEngine  # noqa: E402
-from providers.base import build_providers  # noqa: E402
-from ui import colors  # noqa: E402
-from ui.menu import App, print_record  # noqa: E402
-from ui.progress import RunView  # noqa: E402
-from utils.csv_utils import export_rows, read_bin_file, read_dataset_file  # noqa: E402
-from utils.logging_utils import setup_logging  # noqa: E402
-from utils.validation import normalize_bin  # noqa: E402
+import config as config_module
+from database.database import Database
+from database.models import Status
+from engine import ValidationEngine
+from providers.base import build_providers
+from ui import colors
+from ui.menu import App, print_record
+from ui.progress import RunView
+from utils.csv_utils import export_rows, read_bin_file, read_dataset_file
+from utils.logging_utils import setup_logging
+from utils.validation import normalize_bin
 
 VERSION = "1.0.0"
 
 
 def bootstrap(config_path: str):
-    """Load configuration, prepare directories, logging, console and database."""
     config = config_module.load_config(config_path)
     config_module.ensure_directories(config)
     setup_logging(

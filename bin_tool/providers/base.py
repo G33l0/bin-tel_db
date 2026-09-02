@@ -1,5 +1,3 @@
-"""Provider interface, rate limiting and the provider registry."""
-
 from __future__ import annotations
 
 import threading
@@ -29,7 +27,6 @@ _CLEANERS = {
 
 
 def clean_fields(raw: Dict[str, Any]) -> Dict[str, str]:
-    """Normalise a provider payload to the canonical metadata fields."""
     cleaned: Dict[str, str] = {}
     for name in METADATA_FIELDS:
         cleaner = _CLEANERS.get(name, clean_value)
@@ -41,8 +38,6 @@ def clean_fields(raw: Dict[str, Any]) -> Dict[str, str]:
 
 @dataclass
 class ProviderResponse:
-    """One provider's answer for one BIN."""
-
     provider: str
     bin: str
     status: str
@@ -56,8 +51,6 @@ class ProviderResponse:
 
 
 class RateLimiter:
-    """Simple thread-safe minimum-interval limiter."""
-
     def __init__(self, per_second: float) -> None:
         self.interval = 1.0 / per_second if per_second and per_second > 0 else 0.0
         self._lock = threading.Lock()
@@ -75,8 +68,6 @@ class RateLimiter:
 
 
 class BaseProvider:
-    """Base class for metadata providers."""
-
     type_name = "base"
     requires_network = False
 
@@ -88,27 +79,23 @@ class BaseProvider:
         self.description = str(self.config.get("description", ""))
         self.limiter = RateLimiter(float(self.config.get("rate_limit_per_second", 0) or 0))
 
-    # ------------------------------------------------------------- lifecycle
     def check_ready(self) -> Optional[str]:
-        """Return a human-readable reason when the provider cannot run."""
         return None
 
-    def fetch(self, bin_value: str) -> ProviderResponse:  # pragma: no cover - abstract
+    def fetch(self, bin_value: str) -> ProviderResponse:
         raise NotImplementedError
 
     def lookup(self, bin_value: str) -> ProviderResponse:
-        """Rate-limited, timed, exception-safe wrapper around :meth:`fetch`."""
         started = time.monotonic()
         try:
             self.limiter.acquire()
             response = self.fetch(bin_value)
-        except Exception as exc:  # noqa: BLE001 - provider failures must not abort a run
+        except Exception as exc:
             response = self.failed(bin_value, f"{type(exc).__name__}: {exc}")
         if not response.elapsed_ms:
             response.elapsed_ms = int((time.monotonic() - started) * 1000)
         return response
 
-    # ---------------------------------------------------------------- helpers
     def found(self, bin_value: str, raw: Dict[str, Any]) -> ProviderResponse:
         fields = clean_fields(raw)
         if not fields:
@@ -122,11 +109,10 @@ class BaseProvider:
         return ProviderResponse(self.name, bin_value, ERROR, {}, error=error)
 
     def close(self) -> None:
-        """Release any resources held by the provider."""
+        pass
 
 
 def provider_registry() -> Dict[str, type]:
-    """Map config ``type`` values to provider classes."""
     from providers.local_provider import LocalDatasetProvider
     from providers.offline_provider import OfflineIinRangeProvider
     from providers.public_provider import HttpJsonProvider
@@ -141,7 +127,6 @@ def provider_registry() -> Dict[str, type]:
 def build_provider(
     entry: Dict[str, Any], context: Optional[Dict[str, Any]] = None
 ) -> Optional[BaseProvider]:
-    """Instantiate one provider entry, enabled or not; ``None`` if unknown."""
     provider_class = provider_registry().get(str(entry.get("type", "")).strip())
     if provider_class is None:
         return None
@@ -149,7 +134,6 @@ def build_provider(
 
 
 def build_providers(config: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> List[BaseProvider]:
-    """Instantiate every enabled provider declared in config.json."""
     providers: List[BaseProvider] = []
     for entry in config.get("providers", []):
         provider = build_provider(entry, context)

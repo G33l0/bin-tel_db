@@ -1,5 +1,4 @@
 @echo off
-REM Run BIN-TEL from source (no build required).
 setlocal
 cd /d "%~dp0"
 

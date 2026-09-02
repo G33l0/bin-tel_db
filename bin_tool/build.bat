@@ -1,5 +1,4 @@
 @echo off
-REM Build BIN-TEL.exe for Windows (run from a normal command prompt).
 setlocal
 cd /d "%~dp0"
 

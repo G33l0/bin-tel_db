@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from tests import _context  # noqa: F401
+from tests import _context
 from database.database import Database
 from providers.base import build_provider, build_providers
 from providers.local_provider import LocalDatasetProvider
@@ -45,7 +45,7 @@ class LocalProviderTests(unittest.TestCase):
         self.assertIsNone(self.provider.check_ready())
         response = self.provider.lookup("411111")
         self.assertEqual(response.fields["issuer"], "Example Bank")
-        self.assertNotIn("currency", response.fields)  # unknown values are dropped
+        self.assertNotIn("currency", response.fields)
 
     def test_prefix_match_is_flagged(self):
         self.db.import_dataset([{"bin": "411111", "issuer": "Example Bank"}], "ds")

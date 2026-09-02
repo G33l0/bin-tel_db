@@ -1,5 +1,3 @@
-"""Configuration loading, defaults and persistence."""
-
 from __future__ import annotations
 
 import copy
@@ -8,8 +6,6 @@ import os
 import sys
 from typing import Any, Dict
 
-# When frozen by PyInstaller the config file and data folders live next to the
-# executable, not inside the temporary extraction directory.
 if getattr(sys, "frozen", False):
     APP_DIR = os.path.dirname(os.path.abspath(sys.executable))
 else:
@@ -44,22 +40,19 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "name": "offline_iin_ranges",
             "type": "offline_iin_ranges",
             "enabled": True,
-            "description": "Published IIN range allocations. Offline, no network access.",
+            "description": "Card network from published IIN ranges. Offline.",
         },
         {
             "name": "local_dataset",
             "type": "local_dataset",
             "enabled": True,
-            "description": "Reference dataset imported through menu option [3].",
+            "description": "Reference dataset imported with menu option 3.",
         },
         {
             "name": "metadata_api",
             "type": "http_json",
             "enabled": False,
-            "description": (
-                "Template for a licensed BIN metadata API. Set base_url, confirm the "
-                "service's terms allow this use, then enable."
-            ),
+            "description": "Licensed BIN metadata API. Set base_url, then enable.",
             "base_url": "",
             "url_template": "{base_url}/{bin}",
             "method": "GET",
@@ -98,7 +91,6 @@ def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
 
 
 def load_config(path: str = CONFIG_PATH) -> Dict[str, Any]:
-    """Load config.json, filling in any missing keys from the defaults."""
     if not os.path.isfile(path):
         save_config(DEFAULT_CONFIG, path)
         return copy.deepcopy(DEFAULT_CONFIG)
@@ -115,7 +107,6 @@ def save_config(config: Dict[str, Any], path: str = CONFIG_PATH) -> None:
 
 
 def resolve_path(relative: str) -> str:
-    """Resolve a config path against the application directory."""
     if os.path.isabs(relative):
         return relative
     return os.path.normpath(os.path.join(APP_DIR, relative))

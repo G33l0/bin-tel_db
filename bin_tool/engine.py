@@ -1,5 +1,3 @@
-"""Validation engine: queries providers, reconciles answers, scores confidence."""
-
 from __future__ import annotations
 
 import threading
@@ -18,7 +16,6 @@ LOGGER = get_logger()
 
 FIELD_WEIGHTS = {name: (2.0 if name in CORE_FIELDS else 1.0) for name in METADATA_FIELDS}
 
-# Event names emitted to the UI.
 EV_PROCESSING = "processing"
 EV_FIELD = "field"
 EV_CONFLICT = "conflict"
@@ -36,8 +33,6 @@ class Event:
 
 @dataclass
 class BinOutcome:
-    """Everything the engine learned about one BIN."""
-
     bin: str
     record: Dict[str, object]
     conflicts: List[str] = field(default_factory=list)
@@ -101,16 +96,6 @@ def reconcile(
     required_fields: Sequence[str] = DEFAULT_REQUIRED_FIELDS,
     min_confidence: float = 0.0,
 ) -> BinOutcome:
-    """Merge provider answers into one record.
-
-    A field is only written when the providers that reported it agree. Any
-    disagreement leaves the field as ``unknown`` and is recorded as a conflict,
-    so the database never contains an invented or arbitrarily-picked value.
-
-    A record is only marked ``discovered`` when every field in
-    ``required_fields`` was resolved and the confidence score clears
-    ``min_confidence``; everything else stays ``unconfirmed`` for review.
-    """
     record: Dict[str, object] = {
         "bin": bin_value,
         "bin_length": len(bin_value),
@@ -145,7 +130,6 @@ def reconcile(
             reporters = ", ".join(f"{p}={v}" for p, v in sorted(values.items()))
             conflicts.append(f"{name} ({reporters})")
 
-    # ------------------------------------------------------------- confidence
     total_weight = sum(FIELD_WEIGHTS.values())
     known_weight = sum(
         FIELD_WEIGHTS[name] for name in METADATA_FIELDS if record[name] != UNKNOWN
@@ -155,12 +139,9 @@ def reconcile(
     provider_factor = 1.0 if len(responding) >= 2 else 0.85
     confidence = round(min(1.0, (0.6 * coverage + 0.4 * agreement) * provider_factor), 3)
 
-    # ----------------------------------------------------------------- status
     if not responses:
         status = Status.ERROR
     elif not responding and failed:
-        # A provider that could not be reached is not evidence that the BIN
-        # does not exist, so the record is flagged for a re-check.
         status = Status.ERROR
     elif not responding and not_found:
         status = Status.INVALID
@@ -185,8 +166,6 @@ def reconcile(
 
 
 class ValidationEngine:
-    """Runs a batch of BINs through the configured providers."""
-
     def __init__(
         self,
         config: Dict[str, object],
@@ -198,7 +177,7 @@ class ValidationEngine:
         self.database = database
         self.providers = list(providers)
         self.emit = emit or (lambda event: None)
-        settings = dict(config.get("validation", {}))  # type: ignore[arg-type]
+        settings = dict(config.get("validation", {}))
         self.concurrency = max(1, int(settings.get("concurrency", 4)))
         self.min_providers = int(settings.get("min_providers_for_confirmation", 1))
         self.required_fields = tuple(
@@ -212,7 +191,6 @@ class ValidationEngine:
     def stop(self) -> None:
         self._stop.set()
 
-    # ------------------------------------------------------------------ single
     def validate_one(self, bin_value: str, run_id: Optional[int] = None) -> BinOutcome:
         started = time.monotonic()
         responses = [provider.lookup(bin_value) for provider in self.providers]
@@ -240,7 +218,6 @@ class ValidationEngine:
             self.database.upsert_bin(outcome.record)
         return outcome
 
-    # ------------------------------------------------------------------- batch
     def run(self, bins: Iterable[str], run_id: Optional[int] = None) -> RunCounters:
         queue = list(dict.fromkeys(bins))
         counters = RunCounters(total=len(queue))
@@ -266,7 +243,6 @@ class ValidationEngine:
         return counters
 
     def _emit_outcome(self, outcome: BinOutcome, counters: RunCounters) -> None:
-        """Emit one contiguous block of events per BIN."""
         with self._emit_lock:
             self.emit(Event(EV_PROCESSING, outcome.bin, f"Processing {outcome.bin}"))
             record = outcome.record
@@ -291,11 +267,6 @@ class ValidationEngine:
 
 
 def coverage_confidence(record: Dict[str, object]) -> float:
-    """Confidence for a record whose fields come from a single trusted source.
-
-    Scores only how complete the record is - it makes no claim about accuracy
-    beyond what the source supplied.
-    """
     total_weight = sum(FIELD_WEIGHTS.values())
     known = sum(
         FIELD_WEIGHTS[name]

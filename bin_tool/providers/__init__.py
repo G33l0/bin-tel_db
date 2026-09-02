@@ -1,6 +1,4 @@
-"""Metadata providers."""
-
-from providers.base import (  # noqa: F401
+from providers.base import (
     BaseProvider,
     ProviderResponse,
     build_provider,

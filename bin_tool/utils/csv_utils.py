@@ -1,5 +1,3 @@
-"""CSV / TXT reading and result export helpers."""
-
 from __future__ import annotations
 
 import csv
@@ -34,8 +32,6 @@ DATASET_COLUMN_ALIASES: Dict[str, Sequence[str]] = {
 
 @dataclass
 class RawEntry:
-    """A single value read from an input file, with its origin."""
-
     value: str
     line: int
     source: str
@@ -49,16 +45,10 @@ def _sniff_dialect(sample: str) -> csv.Dialect:
     try:
         return csv.Sniffer().sniff(sample, delimiters=",;\t|")
     except csv.Error:
-        return csv.get_dialect("excel")  # type: ignore[return-value]
+        return csv.get_dialect("excel")
 
 
 def read_bin_file(path: str) -> List[RawEntry]:
-    """Read BIN values from a .csv or .txt file.
-
-    CSV files use the first column whose header matches a known BIN alias,
-    falling back to the first column. TXT files take one value per line and
-    also accept comma-separated values on a single line.
-    """
     if not os.path.isfile(path):
         raise FileNotFoundError(path)
 
@@ -82,7 +72,7 @@ def read_bin_file(path: str) -> List[RawEntry]:
                 index = matched[0]
                 start = 1
             elif header and header[0] and not header[0].isdigit():
-                start = 1  # a header row we could not map; skip it, use column 0
+                start = 1
             for line_number, row in enumerate(rows[start:], start=start + 1):
                 if not row or index >= len(row):
                     continue
@@ -102,7 +92,6 @@ def read_bin_file(path: str) -> List[RawEntry]:
 
 
 def read_dataset_file(path: str) -> List[Dict[str, str]]:
-    """Read a reference BIN dataset (CSV) into normalised field dictionaries."""
     if not os.path.isfile(path):
         raise FileNotFoundError(path)
 
@@ -144,7 +133,6 @@ def read_dataset_file(path: str) -> List[Dict[str, str]]:
     return records
 
 
-# --------------------------------------------------------------------- export
 def _rows_for_export(rows: Iterable[Dict[str, object]]) -> List[Dict[str, object]]:
     return [{name: row.get(name, UNKNOWN) for name in BIN_FIELDS} for row in rows]
 
@@ -176,7 +164,6 @@ def _sql_literal(value: object) -> str:
 
 
 def write_sql(rows: Iterable[Dict[str, object]], path: str, table: str = "bins") -> int:
-    """Emit portable INSERT statements for PostgreSQL / SQLite import."""
     prepared = _rows_for_export(rows)
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     columns = ", ".join(BIN_FIELDS)

@@ -1,5 +1,3 @@
-"""Provider that answers from a reference dataset imported into SQLite."""
-
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -9,8 +7,6 @@ from providers.base import BaseProvider, ProviderResponse
 
 
 class LocalDatasetProvider(BaseProvider):
-    """Looks BINs up in the ``dataset_bins`` table (menu option [3])."""
-
     type_name = "local_dataset"
 
     def __init__(self, config: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> None:
@@ -33,6 +29,5 @@ class LocalDatasetProvider(BaseProvider):
         payload = {name: row.get(name) for name in METADATA_FIELDS}
         response = self.found(bin_value, payload)
         if response.ok and row.get("bin") != bin_value:
-            # Matched on a shorter prefix; keep that visible in the audit trail.
             response.error = f"matched dataset prefix {row.get('bin')}"
         return response

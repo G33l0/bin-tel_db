@@ -46,19 +46,19 @@
       "name": "offline_iin_ranges",
       "type": "offline_iin_ranges",
       "enabled": true,
-      "description": "Published IIN range allocations. Offline, no network access."
+      "description": "Card network from published IIN ranges. Offline."
     },
     {
       "name": "local_dataset",
       "type": "local_dataset",
       "enabled": true,
-      "description": "Reference dataset imported through menu option [3]."
+      "description": "Reference dataset imported with menu option 3."
     },
     {
       "name": "metadata_api",
       "type": "http_json",
       "enabled": false,
-      "description": "Template for a licensed BIN metadata API. Set base_url, confirm the service's terms allow this use, then enable.",
+      "description": "Licensed BIN metadata API. Set base_url, then enable.",
       "base_url": "",
       "url_template": "{base_url}/{bin}",
       "method": "GET",

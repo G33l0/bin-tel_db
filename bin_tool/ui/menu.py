@@ -1,5 +1,3 @@
-"""Interactive menu for the BIN-TEL database tool."""
-
 from __future__ import annotations
 
 import os
@@ -45,8 +43,6 @@ STATUS_FILTERS = {
 
 
 class App:
-    """Menu-driven front end."""
-
     def __init__(self, config: Dict[str, object], database: Database) -> None:
         self.config = config
         self.database = database
@@ -56,7 +52,6 @@ class App:
         self.last_source = ""
         self.box = box.DOUBLE if symbol("ok") == "✓" else box.ASCII
 
-    # ------------------------------------------------------------- main loop
     def run(self) -> None:
         while True:
             self.show_menu()
@@ -81,7 +76,7 @@ class App:
                     handler()
                 except KeyboardInterrupt:
                     self.console.print("\n[warn]Cancelled.[/warn]")
-                except Exception as exc:  # noqa: BLE001 - keep the menu alive
+                except Exception as exc:
                     LOGGER.exception("menu action failed")
                     self.console.print(f"[bad]{symbol('bad')} {type(exc).__name__}: {exc}[/bad]")
             self.pause()
@@ -128,10 +123,9 @@ class App:
     def _close_provider(provider) -> None:
         try:
             provider.close()
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
-    # ------------------------------------------------------------ [1] input
     def action_input(self) -> None:
         directory = config_module.resolve_path(str(self.config["paths"]["input"]))
         path = self.choose_file(directory, "input", (".csv", ".txt", ".tsv"))
@@ -205,7 +199,6 @@ class App:
             writer.writerows(self.rejected)
         self.console.print(f"[ok]{symbol('ok')} Wrote {path}[/ok]")
 
-    # --------------------------------------------------------- [2] validate
     def action_validate(self) -> None:
         queue = list(self.queue)
         if not queue:
@@ -225,8 +218,8 @@ class App:
             if skipped:
                 queue = [b for b in queue if b not in known]
                 self.console.print(
-                    f"[muted]Skipping {len(skipped)} BIN(s) already stored as discovered "
-                    "(disable with config -> skip_already_discovered).[/muted]"
+                    f"[muted]Skipping {len(skipped)} already discovered "
+                    "(config: skip_already_discovered).[/muted]"
                 )
         if not queue:
             self.console.print("[muted]Nothing left to validate.[/muted]")
@@ -282,14 +275,12 @@ class App:
         if Confirm.ask("Export the results now?", default=False):
             self.action_export()
 
-    # ----------------------------------------------------------- [3] import
     def action_import(self) -> None:
         directory = config_module.resolve_path(str(self.config["paths"]["imports"]))
         self.console.print(
-            "[muted]Import an official or licensed BIN dataset (CSV) for bulk database "
-            "construction. Recognised columns: bin/iin plus "
+            "[muted]Columns read from the CSV: bin/iin, "
             + ", ".join(METADATA_FIELDS)
-            + ".[/muted]\n"
+            + " (common aliases accepted).[/muted]\n"
         )
         path = self.choose_file(directory, "imports", (".csv", ".tsv"))
         if not path:
@@ -326,9 +317,7 @@ class App:
         if rejected:
             self.console.print(f"[warn]{rejected} row(s) rejected on BIN format.[/warn]")
 
-        if Confirm.ask(
-            "Also write these rows into the main BIN table (status 'imported')?", default=False
-        ):
+        if Confirm.ask("Also copy these rows into the main BIN table?", default=False):
             stamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
             for record in clean:
                 row: Dict[str, object] = {
@@ -346,7 +335,6 @@ class App:
                 f"[ok]{symbol('ok')} {len(clean)} row(s) written to the BIN table.[/ok]"
             )
 
-    # ----------------------------------------------------------- [4] export
     def action_export(self) -> None:
         table = Table(box=self.box, border_style="frame", show_header=False)
         table.add_column("key", style="heading")
@@ -377,7 +365,6 @@ class App:
         written = export_rows(rows, path, fmt)
         self.console.print(f"[ok]{symbol('ok')} {written} row(s) ({label}) -> {path}[/ok]")
 
-    # ----------------------------------------------------------- [5] config
     def action_config(self) -> None:
         while True:
             self.print_config()
@@ -485,8 +472,8 @@ class App:
         entry["enabled"] = Confirm.ask("enabled", default=bool(entry.get("enabled")))
         if entry.get("type") == "http_json":
             self.console.print(
-                "[warn]Only point this at a service whose terms permit automated "
-                "metadata lookups, and keep the rate limit within what they allow.[/warn]"
+                "[muted]The API key is read from the environment variable named below, "
+                "not from config.json.[/muted]"
             )
             entry["base_url"] = Prompt.ask("base_url", default=str(entry.get("base_url", ""))).strip()
             entry["url_template"] = Prompt.ask(
@@ -503,7 +490,6 @@ class App:
             except ValueError:
                 self.console.print("[warn]Not a number; rate limit unchanged.[/warn]")
 
-    # ------------------------------------------------------- [6] statistics
     def action_statistics(self) -> None:
         stats = self.database.stats()
         overview = Table(box=self.box, border_style="frame", show_header=False)
@@ -549,7 +535,6 @@ class App:
                                ("id", "kind", "started_at", "total", "discovered", "unconfirmed", "invalid", "errors")])
             self.console.print(runs)
 
-    # ---------------------------------------------------------------- helpers
     def choose_file(self, directory: str, label: str, extensions: Sequence[str]) -> Optional[str]:
         files = list_files(directory, extensions)
         table = Table(box=self.box, border_style="frame", title=f"[heading]data/{label}[/heading]")
@@ -579,7 +564,6 @@ class App:
 
 
 def print_record(record: Dict[str, object]) -> None:
-    """Print one stored record (used by the CLI subcommands)."""
     table = Table(box=box.SIMPLE, show_header=False)
     table.add_column("field", style="muted")
     table.add_column("value")

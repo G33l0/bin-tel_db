@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from tests import _context  # noqa: F401
+from tests import _context
 from utils.csv_utils import (
     export_rows,
     list_files,

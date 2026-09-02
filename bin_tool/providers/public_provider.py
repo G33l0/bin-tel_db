@@ -1,11 +1,3 @@
-"""Configurable HTTP/JSON metadata provider.
-
-The provider is intentionally generic: point ``base_url`` at a BIN metadata
-service you are licensed to use, map its response fields in ``config.json``,
-and enable it. Nothing is hard-coded to a particular vendor, and the provider
-refuses to run until a base URL is configured.
-"""
-
 from __future__ import annotations
 
 import json
@@ -18,17 +10,16 @@ from typing import Any, Dict, List, Optional
 from providers.base import BaseProvider, ProviderResponse
 from utils.logging_utils import get_logger
 
-try:  # pragma: no cover - exercised only when httpx is installed
+try:
     import httpx
-except ImportError:  # pragma: no cover
-    httpx = None  # type: ignore[assignment]
+except ImportError:
+    httpx = None
 
 LOGGER = get_logger()
 USER_AGENT = "bin-tel-db/1.0 (+BIN metadata tool)"
 
 
 def extract_path(payload: Any, path: str) -> Any:
-    """Read a dotted path such as ``bank.name`` out of a decoded JSON payload."""
     current = payload
     for part in path.split("."):
         if isinstance(current, list):
@@ -44,8 +35,6 @@ def extract_path(payload: Any, path: str) -> Any:
 
 
 class HttpJsonProvider(BaseProvider):
-    """Fetches BIN metadata from a JSON HTTP endpoint."""
-
     type_name = "http_json"
     requires_network = True
 
@@ -66,7 +55,6 @@ class HttpJsonProvider(BaseProvider):
         self.backoff = float(self.config.get("retry_backoff_seconds", settings.get("retry_backoff_seconds", 1.5)))
         self._client = None
 
-    # ------------------------------------------------------------- readiness
     def check_ready(self) -> Optional[str]:
         if not self.base_url:
             return "base_url is not configured"
@@ -93,7 +81,6 @@ class HttpJsonProvider(BaseProvider):
     def build_url(self, bin_value: str) -> str:
         return self.url_template.format(base_url=self.base_url, bin=bin_value)
 
-    # --------------------------------------------------------------- fetching
     def fetch(self, bin_value: str) -> ProviderResponse:
         reason = self.check_ready()
         if reason:
@@ -121,7 +108,6 @@ class HttpJsonProvider(BaseProvider):
         return self.failed(bin_value, last_error)
 
     def _send(self, url: str):
-        """Return ``(status_code, body, error)`` for one request attempt."""
         headers = self._request_headers()
         if httpx is not None:
             try:
@@ -129,7 +115,7 @@ class HttpJsonProvider(BaseProvider):
                     self._client = httpx.Client(timeout=self.timeout, follow_redirects=True)
                 response = self._client.request(self.method, url, headers=headers)
                 return response.status_code, response.text, None
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 return 0, "", f"{type(exc).__name__}: {exc}"
         request = urllib.request.Request(url, headers=headers, method=self.method)
         try:
@@ -137,7 +123,7 @@ class HttpJsonProvider(BaseProvider):
                 return response.status, response.read().decode("utf-8", "replace"), None
         except urllib.error.HTTPError as exc:
             return exc.code, "", None
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return 0, "", f"{type(exc).__name__}: {exc}"
 
     def _parse(self, bin_value: str, body: str) -> ProviderResponse:

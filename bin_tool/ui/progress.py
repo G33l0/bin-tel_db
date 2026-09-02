@@ -1,5 +1,3 @@
-"""Live run view: scrolling timestamped log, counters, ETA."""
-
 from __future__ import annotations
 
 import time
@@ -24,8 +22,6 @@ def format_duration(seconds: float) -> str:
 
 
 class RunView:
-    """Renders the validator screen while the engine works."""
-
     def __init__(self, total: int, title: str = "BIN-TEL VALIDATOR") -> None:
         self.total = total
         self.title = title
@@ -46,7 +42,6 @@ class RunView:
         self.task_id: Optional[TaskID] = None
         self.live: Optional[Live] = None
 
-    # ------------------------------------------------------------- lifecycle
     def __enter__(self) -> "RunView":
         self.console.print()
         self.console.rule(f"[heading]{self.title}[/heading]", style="frame")
@@ -67,7 +62,6 @@ class RunView:
             self.live = None
         self.console.print()
 
-    # ------------------------------------------------------------------ render
     def _renderable(self):
         stats = Table.grid(padding=(0, 2))
         stats.add_column(justify="left")
@@ -96,7 +90,6 @@ class RunView:
         remaining = max(self.total - self.processed, 0)
         return self.average * remaining if self.processed else -1.0
 
-    # --------------------------------------------------------------- printing
     def log(self, text: str, style: str = "value", mark: str = "") -> None:
         stamp = datetime.now().strftime("%H:%M:%S")
         prefix = f"[{mark}] " if mark else ""

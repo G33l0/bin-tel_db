@@ -1,8 +1,9 @@
 import os
 import tempfile
+import threading
 import unittest
 
-from tests import _context  # noqa: F401
+from tests import _context
 from database.database import Database
 from database.models import Status
 
@@ -63,6 +64,19 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(run["total"], 2)
         self.assertEqual(run["discovered"], 1)
         self.assertIsNotNone(run["finished_at"])
+
+    def test_concurrent_writes(self):
+        def write(start):
+            for offset in range(50):
+                value = str(400000 + start * 50 + offset)
+                self.db.upsert_bin({"bin": value, "status": Status.DISCOVERED})
+
+        threads = [threading.Thread(target=write, args=(index,)) for index in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(self.db.count_bins(), 200)
 
     def test_stats_shape(self):
         self.db.upsert_bin(

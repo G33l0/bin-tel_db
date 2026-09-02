@@ -1,5 +1,3 @@
-"""Record shapes and SQLite schema for the BIN-TEL database."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,7 +5,6 @@ from typing import Dict, List, Optional
 
 from utils.validation import UNKNOWN
 
-# Metadata fields resolved from providers / imported datasets.
 METADATA_FIELDS: List[str] = [
     "issuer",
     "network",
@@ -22,14 +19,12 @@ METADATA_FIELDS: List[str] = [
     "issuer_website",
 ]
 
-# Full column order used for exports and for the ``bins`` table.
 BIN_FIELDS: List[str] = (
     ["bin", "bin_length"]
     + METADATA_FIELDS
     + ["status", "confidence", "source", "checked_at"]
 )
 
-# Fields that carry the most weight when scoring confidence.
 CORE_FIELDS = ("network", "issuer", "country_code", "card_type")
 
 BOOLEAN_FIELDS = ("prepaid", "commercial")
@@ -54,8 +49,6 @@ STATUS_LABELS = {
 
 @dataclass
 class BinRecord:
-    """One row of the ``bins`` table."""
-
     bin: str
     bin_length: int = 0
     issuer: str = UNKNOWN
@@ -85,13 +78,11 @@ class BinRecord:
     @classmethod
     def from_row(cls, row: Dict[str, object]) -> "BinRecord":
         data = {name: row[name] for name in BIN_FIELDS if name in row}
-        return cls(**data)  # type: ignore[arg-type]
+        return cls(**data)
 
 
 @dataclass
 class ProviderOutcome:
-    """Raw per-provider answer stored for auditing."""
-
     provider: str
     bin: str
     status: str

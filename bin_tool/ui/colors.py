@@ -1,5 +1,3 @@
-"""Console theme, symbols and status styling."""
-
 from __future__ import annotations
 
 import sys
@@ -25,7 +23,6 @@ THEME = Theme(
     }
 )
 
-# Status -> (style, symbol key)
 STATUS_STYLES = {
     Status.DISCOVERED: "ok",
     Status.IMPORTED: "ok",
@@ -51,7 +48,6 @@ def _terminal_supports_unicode() -> bool:
 
 
 def configure(ascii_symbols="auto") -> Console:
-    """Create the shared console and pick the symbol set."""
     global _console, _symbols
     if isinstance(ascii_symbols, str) and ascii_symbols.casefold() == "auto":
         use_ascii = not _terminal_supports_unicode()

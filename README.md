@@ -1,7 +1,7 @@
-# BIN-TEL DATABASE
+# bin-tel
 
-A Windows-console tool for building a BIN / IIN metadata database from CSV/TXT
-input lists and from official or licensed reference datasets.
+Console tool for building a BIN/IIN metadata database from CSV/TXT lists and from
+imported reference datasets. Runs on Windows (also Linux/macOS), Python 3.9+.
 
 ```
 ╔═══════════════════════ BIN-TEL DATABASE ═══════════════════════╗
@@ -20,30 +20,7 @@ input lists and from official or licensed reference datasets.
 Select option:
 ```
 
-## Scope
-
-The tool works only with issuer identification numbers - the first 6 or 8
-digits - and publicly documented issuer metadata. Inputs longer than the
-configured BIN length are rejected before anything else happens, so full card
-numbers, CVVs, expiry dates and cardholder data never enter the pipeline or the
-database. It does not attempt to determine whether an individual payment card
-is usable.
-
-There is no enumeration mode: the tool validates the BINs you supply or the
-dataset you import, and it does not sweep 000000-999999 against third-party
-services.
-
-Two rules shape everything below:
-
-* **Nothing is invented.** A field the providers did not report is written as
-  `unknown`, never as a guess.
-* **Disagreement is not resolved silently.** When providers report different
-  values for a field, the field stays `unknown`, the disagreement is recorded
-  in `conflicts`, and the record is marked `unconfirmed` for review.
-
-## Install and run
-
-Requires Python 3.9 or newer.
+## Install
 
 ```cmd
 cd bin_tool
@@ -51,31 +28,28 @@ pip install -r requirements.txt
 python bin_tool.py
 ```
 
-Or just double-click `run.bat`, which installs the dependencies on first use.
+`run.bat` does the same and installs the dependencies if they are missing.
 
-### Build a standalone .exe
+Standalone executable:
 
 ```cmd
 cd bin_tool
 build.bat
 ```
 
-This produces `dist\BIN-TEL.exe` - a single file with Python bundled in. Copy
-it anywhere; it creates `config.json` and the `data\` folders next to itself
-the first time it runs.
+Produces `dist\BIN-TEL.exe` with Python bundled. It writes `config.json` and the
+`data\` folders next to itself on first run.
 
-## Using the menu
+## Menu
 
-**[1] Input CSV/TXT** - lists the files in `data\input`, reads BIN values from
-them and queues the valid ones. CSV files use the first column whose header is
-`bin`, `iin`, `prefix` and similar, falling back to the first column; TXT files
-take one value per line (or comma-separated values on one line). Every value is
-normalised (separators stripped) and checked; rejects are shown with a reason
-and can be written to a report file.
+**1. Input CSV/TXT.** Lists `data\input`, reads BIN values and queues the valid
+ones. CSV uses the first column whose header is `bin`, `iin`, `prefix` or a
+similar alias, otherwise the first column. TXT takes one value per line, or
+comma separated values on one line. Separators are stripped before validation;
+rejects are listed with a reason and can be written to a report file.
 
-**[2] Validate BINs** - runs the queued BINs through every ready provider,
-reconciles the answers and stores the result. The screen shows a scrolling
-timestamped log, running counters, average response time and an ETA:
+**2. Validate BINs.** Runs the queue through every ready provider, reconciles
+the answers and stores the result.
 
 ```
 ──────────────────────────── BIN-TEL VALIDATOR ─────────────────────────────
@@ -87,7 +61,7 @@ timestamped log, running counters, average response time and an ETA:
 [08:42:11] DISCOVERED 411111
 
 [08:42:13] Processing 522222
-[08:42:13] ! Conflicting issuer (dataset=Bank A, metadata_api=Bank B)
+[08:42:13] ! Conflicting issuer (local_dataset=Bank A, metadata_api=Bank B)
 [08:42:13] SKIPPED - requires verification
 
 Progress ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 37 / 100
@@ -99,29 +73,25 @@ Average response        1.42s
 Estimated remaining  00:01:29
 ```
 
-Green is a confirmed value, yellow is uncertain or conflicting, red is invalid
-or an error.
+Green is confirmed, yellow is uncertain or conflicting, red is invalid or error.
+Symbols drop to `OK`/`x` on code pages that cannot render them.
 
-**[3] Import BIN Dataset** - bulk-loads an official or licensed BIN dataset
-(CSV) from `data\imports` into the reference table, which the `local_dataset`
-provider then answers from. Column names are matched against common aliases
-(`bank`/`issuer`, `scheme`/`network`, `countrycode`/`country_code`, ...).
-Optionally the rows are also written straight into the main BIN table with
-status `imported`.
+**3. Import BIN Dataset.** Loads a reference dataset (CSV) from `data\imports`
+into the `dataset_bins` table, which the `local_dataset` provider reads.
+Column names are matched against common aliases (`bank`/`issuer`,
+`scheme`/`network`, `countrycode`/`country_code`). Rows can optionally be copied
+into the main BIN table with status `imported`.
 
-**[4] Export Results** - writes the stored records to `data\results` as CSV,
-JSON, or SQL `INSERT` statements (with a matching `CREATE TABLE`) ready for
-PostgreSQL or SQLite.
+**4. Export Results.** Writes to `data\results` as CSV, JSON or SQL. The SQL
+export includes a matching `CREATE TABLE`.
 
-**[5] Config** - shows every setting and each provider's readiness, and edits
+**5. Config.** Shows every setting and each provider's readiness, edits
 `config.json` in place.
 
-**[6] Statistics** - totals by status, network and country, average confidence,
-dataset size and recent runs.
+**6. Statistics.** Totals by status, network and country, average confidence,
+dataset size, recent runs.
 
 ## Command line
-
-The same operations are available non-interactively:
 
 ```cmd
 python bin_tool.py validate data\input\bins.csv --export data\results\out.csv
@@ -131,68 +101,79 @@ python bin_tool.py lookup 411111
 python bin_tool.py stats
 ```
 
-## Database schema
+## Schema
 
-SQLite (`data\bin_tel.sqlite3`), with the same column order used for every
-export so a table can be created directly in PostgreSQL:
+SQLite at `data\bin_tel.sqlite3`. The `bins` table and every export share this
+column order, so the export drops straight into PostgreSQL:
 
 | column | meaning |
 | --- | --- |
-| `bin` | the BIN/IIN itself (primary key) |
+| `bin` | BIN/IIN, primary key |
 | `bin_length` | 6 or 8 |
 | `issuer` | issuing institution |
 | `network` | Visa, Mastercard, ... |
-| `card_type` | credit / debit / ... |
+| `card_type` | credit, debit, ... |
 | `card_level` | classic, platinum, business, ... |
-| `country` | issuing country name |
+| `country` | issuing country |
 | `country_code` | ISO 3166-1 alpha-2 |
 | `currency` | ISO 4217 |
-| `prepaid` | `true` / `false` / `unknown` |
-| `commercial` | `true` / `false` / `unknown` |
+| `prepaid` | `true`, `false`, `unknown` |
+| `commercial` | `true`, `false`, `unknown` |
 | `issuer_phone` | issuer contact number |
 | `issuer_website` | issuer website |
 | `status` | `discovered`, `unconfirmed`, `invalid`, `error`, `imported` |
-| `confidence` | 0.0-1.0, from field coverage and cross-provider agreement |
-| `source` | which providers supplied the record |
+| `confidence` | 0.0 to 1.0 |
+| `source` | providers that supplied the record |
 | `checked_at` | UTC timestamp |
 
-Every text field defaults to `unknown`. Supporting tables: `dataset_bins`
-(imported reference data), `runs` (one row per validation run) and
-`provider_results` (each provider's raw answer, for auditing).
+Text fields default to `unknown`. Supporting tables: `dataset_bins` (imported
+reference data), `runs` (one row per validation run), `provider_results` (raw
+per-provider answers, kept for auditing).
 
-### How `status` and `confidence` are decided
+## Reconciliation
 
-`confidence = (0.6 × field coverage + 0.4 × cross-provider agreement) × provider factor`,
-where coverage weights `network`, `issuer`, `country_code` and `card_type`
-double, agreement is the share of reported fields the providers agreed on, and
-the provider factor is 1.0 when at least two providers answered and 0.85 when
-only one did.
+A field is written only when the providers that reported it agree, compared
+after case folding and punctuation normalisation ("Example Bank, N.A." matches
+"Example Bank NA"). On disagreement the field stays `unknown`, the reporters are
+recorded in `conflicts`, and the record is marked `unconfirmed`. A field nobody
+reported stays `unknown`; the tool does not fill gaps by inference.
 
-A record is `discovered` only when at least one provider found it, no field
-conflicted, every field in `required_fields_for_discovery` was resolved and the
-confidence clears `min_confidence_for_discovery`. Anything short of that is
-`unconfirmed`. All providers reporting "not found" gives `invalid`; all
-providers failing gives `error`.
+```
+confidence = (0.6 * coverage + 0.4 * agreement) * provider_factor
+```
+
+`coverage` is the share of fields resolved, weighting `network`, `issuer`,
+`country_code` and `card_type` double. `agreement` is the share of reported
+fields the providers agreed on. `provider_factor` is 1.0 with two or more
+answering providers, 0.85 with one.
+
+Status:
+
+| status | condition |
+| --- | --- |
+| `discovered` | found, no conflicts, `required_fields_for_discovery` resolved, confidence above `min_confidence_for_discovery` |
+| `unconfirmed` | found but conflicting, incomplete or below the threshold |
+| `invalid` | every provider reported not found |
+| `error` | no provider found it and at least one failed, so absence is unproven |
 
 ## Providers
 
-Providers are declared in `config.json` and can be enabled, disabled and
-reconfigured from menu option [5].
+Declared in `config.json`, editable from menu option 5.
 
-| name | type | what it does |
+| name | type | source |
 | --- | --- | --- |
-| `offline_iin_ranges` | `offline_iin_ranges` | Derives the network from published ISO/IEC 7812 range allocations. Offline, no network access. Reports nothing else - ranges shared by two networks return no answer rather than a guess. |
-| `local_dataset` | `local_dataset` | Answers from the dataset imported through option [3], with exact match first and longest-prefix match as a fallback. |
+| `offline_iin_ranges` | `offline_iin_ranges` | Network from published ISO/IEC 7812 range allocations. No network access. Ranges shared by two networks return no answer. |
+| `local_dataset` | `local_dataset` | Dataset imported with option 3. Exact match first, then longest prefix. |
 | `metadata_api` | `http_json` | Disabled template for a licensed BIN metadata API. |
 
-To use an HTTP provider, set `base_url`, map the response fields, and enable
-it - only against a service whose terms permit automated metadata lookups, and
-with `rate_limit_per_second` inside what they allow. API keys are read from an
-environment variable (`api_key_env`), never stored in `config.json`. Requests
-are rate limited, retried with exponential backoff on 429/5xx/timeouts, and a
-provider failure is recorded rather than allowed to abort the run.
+The HTTP provider is generic: set `base_url`, map the response fields, enable it.
+Requests are rate limited by `rate_limit_per_second` and retried with
+exponential backoff on 429, 5xx and timeouts. A provider failure is recorded
+against the BIN instead of aborting the run. API keys are read from the
+environment variable named in `api_key_env` and are never written to
+`config.json`.
 
-`field_map` accepts dotted paths and a list of candidates per field, first hit
+`field_map` takes dotted paths and a list of candidates per field, first hit
 wins:
 
 ```json
@@ -203,61 +184,48 @@ wins:
 }
 ```
 
-## Configuration
+Adding a provider type: subclass `BaseProvider`, implement `fetch()`, register
+it in `providers/base.py:provider_registry`.
 
-`config.json` is created from the defaults on first run; missing keys are
-filled in, so it is safe to keep a partial file.
+## Config
 
-| setting | default | meaning |
-| --- | --- | --- |
-| `validation.concurrency` | 4 | worker threads |
-| `validation.request_timeout_seconds` | 10.0 | per HTTP request |
-| `validation.max_retries` | 2 | retries per request |
-| `validation.retry_backoff_seconds` | 1.5 | base of the exponential backoff |
-| `validation.min_providers_for_confirmation` | 1 | providers that must find the BIN |
-| `validation.required_fields_for_discovery` | `["network", "issuer"]` | fields required for `discovered` |
-| `validation.min_confidence_for_discovery` | 0.35 | confidence floor for `discovered` |
-| `validation.skip_already_discovered` | true | don't re-check confirmed records |
-| `validation.store_provider_results` | true | keep the per-provider audit trail |
-| `input.allowed_bin_lengths` | `[6, 8]` | accepted BIN lengths |
-| `input.max_input_digits` | 8 | hard ceiling on input length |
-| `ui.ascii_symbols` | `"auto"` | use `OK`/`x` instead of `✓`/`✗` on legacy code pages |
-| `logging.level` | `INFO` | file log level (`data\logs\bin_tel.log`, rotated) |
+`config.json` is created from the defaults on first run and missing keys are
+filled in, so a partial file is fine.
+
+| setting | default |
+| --- | --- |
+| `validation.concurrency` | 4 |
+| `validation.request_timeout_seconds` | 10.0 |
+| `validation.max_retries` | 2 |
+| `validation.retry_backoff_seconds` | 1.5 |
+| `validation.min_providers_for_confirmation` | 1 |
+| `validation.required_fields_for_discovery` | `["network", "issuer"]` |
+| `validation.min_confidence_for_discovery` | 0.35 |
+| `validation.skip_already_discovered` | true |
+| `validation.store_provider_results` | true |
+| `input.allowed_bin_lengths` | `[6, 8]` |
+| `input.max_input_digits` | 8 |
+| `ui.ascii_symbols` | `"auto"` |
+| `logging.level` | `INFO` |
+
+Logs go to `data\logs\bin_tel.log`, rotated at 2 MB, five backups.
 
 ## Layout
 
 ```
 bin_tool/
-├── bin_tool.py          entry point: menu and CLI subcommands
-├── engine.py            provider fan-out, reconciliation, confidence scoring
-├── config.py            defaults, load/save, path resolution
-├── config.json          generated on first run
-├── requirements.txt
-├── build.bat            builds dist\BIN-TEL.exe
-├── run.bat              runs from source
-├── bin_tool.spec        PyInstaller spec
-├── data/
-│   ├── input/           BIN lists to validate (sample included)
-│   ├── imports/         reference datasets (sample included)
-│   ├── results/         exports
-│   └── logs/            rotating log files
-├── providers/
-│   ├── base.py          provider interface, rate limiting, registry
-│   ├── offline_provider.py
-│   ├── local_provider.py
-│   └── public_provider.py   configurable HTTP/JSON provider
-├── database/
-│   ├── models.py        record shapes, statuses, SQL schema
-│   └── database.py      SQLite persistence
-├── ui/
-│   ├── menu.py          interactive menu
-│   ├── colors.py        theme, symbols, status styling
-│   └── progress.py      live log, counters, ETA
-├── utils/
-│   ├── validation.py    BIN normalisation and IIN ranges
-│   ├── csv_utils.py     CSV/TXT reading, exports
-│   └── logging_utils.py
-└── tests/               unittest suite
+├── bin_tool.py        entry point, menu and CLI
+├── engine.py          provider fan-out, reconciliation, scoring
+├── config.py          defaults, load/save, path resolution
+├── bin_tool.spec      PyInstaller spec
+├── build.bat          builds dist\BIN-TEL.exe
+├── run.bat            runs from source
+├── data/              input, imports, results, logs, database
+├── providers/         base, offline_provider, local_provider, public_provider
+├── database/          models, database
+├── ui/                menu, colors, progress
+├── utils/             validation, csv_utils, logging_utils
+└── tests/
 ```
 
 ## Tests
@@ -266,3 +234,12 @@ bin_tool/
 cd bin_tool
 python -m unittest discover -s tests -t .
 ```
+
+## Scope
+
+The tool handles issuer identification numbers only, the first 6 or 8 digits,
+plus public issuer metadata. Input longer than `input.max_input_digits` is
+rejected before anything else runs, so full card numbers, CVVs, expiry dates and
+cardholder data never reach the pipeline or the database. There is no
+enumeration mode: it processes the BINs you supply or the dataset you import,
+and does not sweep 000000-999999 against third party services.
