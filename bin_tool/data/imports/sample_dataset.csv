@@ -1,0 +1,3 @@
+bin,bank,scheme,type,level,country,country_code,currency,prepaid,commercial,phone,website
+411111,Example Bank NA,Visa,credit,classic,United States,US,USD,false,false,+1-800-000-0000,https://example.com
+522222,Example Bank Europe,Mastercard,debit,standard,Germany,DE,EUR,false,false,,https://example.de
