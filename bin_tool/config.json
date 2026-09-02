@@ -1,0 +1,125 @@
+{
+  "database": {
+    "path": "data/bin_tel.sqlite3"
+  },
+  "paths": {
+    "input": "data/input",
+    "results": "data/results",
+    "imports": "data/imports",
+    "logs": "data/logs"
+  },
+  "input": {
+    "allowed_bin_lengths": [
+      6,
+      8
+    ],
+    "max_input_digits": 8,
+    "deduplicate": true
+  },
+  "validation": {
+    "concurrency": 4,
+    "request_timeout_seconds": 10.0,
+    "max_retries": 2,
+    "retry_backoff_seconds": 1.5,
+    "min_providers_for_confirmation": 1,
+    "required_fields_for_discovery": [
+      "network",
+      "issuer"
+    ],
+    "min_confidence_for_discovery": 0.35,
+    "skip_already_discovered": true,
+    "store_provider_results": true
+  },
+  "export": {
+    "default_format": "csv"
+  },
+  "ui": {
+    "ascii_symbols": "auto",
+    "log_lines": 12
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "bin_tel.log"
+  },
+  "providers": [
+    {
+      "name": "offline_iin_ranges",
+      "type": "offline_iin_ranges",
+      "enabled": true,
+      "description": "Published IIN range allocations. Offline, no network access."
+    },
+    {
+      "name": "local_dataset",
+      "type": "local_dataset",
+      "enabled": true,
+      "description": "Reference dataset imported through menu option [3]."
+    },
+    {
+      "name": "metadata_api",
+      "type": "http_json",
+      "enabled": false,
+      "description": "Template for a licensed BIN metadata API. Set base_url, confirm the service's terms allow this use, then enable.",
+      "base_url": "",
+      "url_template": "{base_url}/{bin}",
+      "method": "GET",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "api_key_env": "BIN_TEL_API_KEY",
+      "api_key_header": "Authorization",
+      "api_key_prefix": "Bearer ",
+      "rate_limit_per_second": 1.0,
+      "not_found_status_codes": [
+        404
+      ],
+      "field_map": {
+        "issuer": [
+          "bank.name",
+          "issuer",
+          "bank"
+        ],
+        "network": [
+          "scheme",
+          "network",
+          "brand"
+        ],
+        "card_type": [
+          "type",
+          "card_type"
+        ],
+        "card_level": [
+          "brand",
+          "level",
+          "tier"
+        ],
+        "country": [
+          "country.name",
+          "country"
+        ],
+        "country_code": [
+          "country.alpha2",
+          "country_code"
+        ],
+        "currency": [
+          "country.currency",
+          "currency"
+        ],
+        "prepaid": [
+          "prepaid"
+        ],
+        "commercial": [
+          "commercial",
+          "business"
+        ],
+        "issuer_phone": [
+          "bank.phone",
+          "phone"
+        ],
+        "issuer_website": [
+          "bank.url",
+          "website"
+        ]
+      }
+    }
+  ]
+}
