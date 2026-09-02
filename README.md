@@ -95,9 +95,11 @@ dataset size, recent runs.
 
 ```cmd
 python bin_tool.py validate data\input\bins.csv --export data\results\out.csv
+python bin_tool.py validate --only unconfirmed --limit 500
 python bin_tool.py import data\imports\dataset.csv --name acme_2026
 python bin_tool.py export data\results\bins.sql --format sql --status discovered
 python bin_tool.py lookup 411111
+python bin_tool.py cache
 python bin_tool.py stats
 ```
 
@@ -128,7 +130,8 @@ column order, so the export drops straight into PostgreSQL:
 
 Text fields default to `unknown`. Supporting tables: `dataset_bins` (imported
 reference data), `runs` (one row per validation run), `provider_results` (raw
-per-provider answers, kept for auditing).
+per-provider answers, kept for auditing), `http_cache` (one stored answer per
+HTTP provider and BIN, so a BIN is never fetched twice).
 
 ## Reconciliation
 
@@ -164,7 +167,36 @@ Declared in `config.json`, editable from menu option 5.
 | --- | --- | --- |
 | `offline_iin_ranges` | `offline_iin_ranges` | Network from published ISO/IEC 7812 range allocations. No network access. Ranges shared by two networks return no answer. |
 | `local_dataset` | `local_dataset` | Dataset imported with option 3. Exact match first, then longest prefix. |
+| `binlist` | `binlist` | binlist.net public lookup. No API key. Issuer, country, currency, card type. Rate limited and cached. Disabled by default. |
 | `metadata_api` | `http_json` | Disabled template for a licensed BIN metadata API. |
+
+### binlist
+
+`binlist` is ready to use with no key: enable it in menu option 5 (or set
+`"enabled": true` on its config entry). It supplies the issuer, country,
+currency and card type that the offline provider cannot, which is what moves a
+record from `unconfirmed` to `discovered`.
+
+binlist enforces a low rate limit (a few requests per minute), so the provider
+defaults to `rate_limit_per_second: 0.08`. It is meant for filling gaps and
+verifying a subset, not for sweeping hundreds of thousands of BINs in one pass.
+Data is crowd-sourced, so some BINs return no bank name and stay `unconfirmed`;
+that is expected, not a fault.
+
+To work through a large list, run against the stored backlog in slices:
+
+```cmd
+python bin_tool.py validate --only unconfirmed --limit 500
+```
+
+Every HTTP response is cached in the database, so re-runs and overlapping lists
+never fetch the same BIN twice. Inspect or clear the cache:
+
+```cmd
+python bin_tool.py cache
+python bin_tool.py cache --clear
+python bin_tool.py cache --clear --provider binlist
+```
 
 The HTTP provider is generic: set `base_url`, map the response fields, enable it.
 Requests are rate limited by `rate_limit_per_second` and retried with
@@ -207,6 +239,9 @@ filled in, so a partial file is fine.
 | `input.max_input_digits` | 8 |
 | `ui.ascii_symbols` | `"auto"` |
 | `logging.level` | `INFO` |
+
+HTTP providers also take `cache_responses` (default true) and `cache_ttl_days`
+(default 0, meaning cached answers never expire).
 
 Logs go to `data\logs\bin_tel.log`, rotated at 2 MB, five backups.
 

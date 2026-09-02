@@ -167,4 +167,13 @@ CREATE TABLE IF NOT EXISTS provider_results (
 );
 
 CREATE INDEX IF NOT EXISTS idx_provider_results_bin ON provider_results(bin);
+
+CREATE TABLE IF NOT EXISTS http_cache (
+    provider        TEXT NOT NULL,
+    bin             TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    fields_json     TEXT NOT NULL DEFAULT '{}',
+    fetched_at      TEXT NOT NULL,
+    PRIMARY KEY (provider, bin)
+);
 """

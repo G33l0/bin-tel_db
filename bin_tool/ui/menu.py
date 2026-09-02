@@ -508,6 +508,7 @@ class App:
         )
         overview.add_row("Records with unknown issuer", str(stats["unknown_issuer"]))
         overview.add_row("Reference dataset rows", str(stats["dataset_rows"]))
+        overview.add_row("Cached API responses", str(stats.get("cached_responses", 0)))
         self.console.print(overview)
 
         if stats["by_network"]:

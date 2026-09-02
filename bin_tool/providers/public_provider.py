@@ -7,7 +7,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
 
-from providers.base import BaseProvider, ProviderResponse
+from providers.base import ERROR, FOUND, NOT_FOUND, BaseProvider, ProviderResponse
 from utils.logging_utils import get_logger
 
 try:
@@ -53,6 +53,9 @@ class HttpJsonProvider(BaseProvider):
         self.timeout = float(self.config.get("timeout_seconds", settings.get("request_timeout_seconds", 10.0)))
         self.max_retries = int(self.config.get("max_retries", settings.get("max_retries", 2)))
         self.backoff = float(self.config.get("retry_backoff_seconds", settings.get("retry_backoff_seconds", 1.5)))
+        self.cache_responses = bool(self.config.get("cache_responses", True))
+        self.cache_ttl_days = float(self.config.get("cache_ttl_days", 0) or 0)
+        self.database = (self.context or {}).get("database")
         self._client = None
 
     def check_ready(self) -> Optional[str]:
@@ -80,6 +83,20 @@ class HttpJsonProvider(BaseProvider):
 
     def build_url(self, bin_value: str) -> str:
         return self.url_template.format(base_url=self.base_url, bin=bin_value)
+
+    def lookup(self, bin_value: str) -> ProviderResponse:
+        if self.cache_responses and self.database is not None:
+            cached = self.database.cache_get(self.name, bin_value, self.cache_ttl_days)
+            if cached is not None and cached["status"] in (FOUND, NOT_FOUND):
+                return ProviderResponse(self.name, bin_value, cached["status"], dict(cached["fields"]))
+        response = super().lookup(bin_value)
+        if (
+            self.cache_responses
+            and self.database is not None
+            and response.status in (FOUND, NOT_FOUND)
+        ):
+            self.database.cache_put(self.name, bin_value, response.status, response.fields)
+        return response
 
     def fetch(self, bin_value: str) -> ProviderResponse:
         reason = self.check_ready()
@@ -155,3 +172,39 @@ class HttpJsonProvider(BaseProvider):
                 self._client.close()
             finally:
                 self._client = None
+
+
+class BinlistProvider(HttpJsonProvider):
+    type_name = "binlist"
+
+    DEFAULTS = {
+        "base_url": "https://lookup.binlist.net",
+        "url_template": "{base_url}/{bin}",
+        "method": "GET",
+        "headers": {"Accept": "application/json", "Accept-Version": "3"},
+        "not_found_status_codes": [404],
+        "rate_limit_per_second": 0.08,
+        "field_map": {
+            "issuer": ["bank.name"],
+            "network": ["scheme"],
+            "card_type": ["type"],
+            "card_level": ["brand"],
+            "country": ["country.name"],
+            "country_code": ["country.alpha2"],
+            "currency": ["country.currency"],
+            "prepaid": ["prepaid"],
+            "issuer_phone": ["bank.phone"],
+            "issuer_website": ["bank.url"],
+        },
+    }
+
+    def __init__(self, config: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> None:
+        merged: Dict[str, Any] = dict(self.DEFAULTS)
+        for key, value in (config or {}).items():
+            if key == "headers" and isinstance(value, dict):
+                merged["headers"] = {**self.DEFAULTS["headers"], **value}
+            elif key == "field_map" and isinstance(value, dict) and value:
+                merged["field_map"] = value
+            elif value not in (None, ""):
+                merged[key] = value
+        super().__init__(merged, context)

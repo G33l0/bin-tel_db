@@ -86,6 +86,34 @@ def mii_industry(bin_value: str) -> Optional[str]:
     return MII_INDUSTRIES.get(bin_value[0])
 
 
+CANONICAL_NETWORKS = {
+    "visa": "Visa",
+    "mastercard": "Mastercard",
+    "american express": "American Express",
+    "amex": "American Express",
+    "discover": "Discover",
+    "diners club": "Diners Club",
+    "diners club international": "Diners Club",
+    "jcb": "JCB",
+    "unionpay": "UnionPay",
+    "china unionpay": "UnionPay",
+    "maestro": "Maestro",
+    "interac": "Interac",
+    "elo": "Elo",
+    "hipercard": "Hipercard",
+    "rupay": "RuPay",
+    "mir": "Mir",
+}
+
+
+def canonical_network(value) -> str:
+    text = clean_value(value)
+    if text == UNKNOWN:
+        return UNKNOWN
+    key = re.sub(r"\s+", " ", text.strip().casefold())
+    return CANONICAL_NETWORKS.get(key, text.title() if text.islower() else text)
+
+
 def network_from_iin(bin_value: str) -> Optional[str]:
     digits = _NON_DIGITS.sub("", bin_value or "")
     if len(digits) < 4:

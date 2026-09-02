@@ -209,6 +209,55 @@ class Database:
                 ),
             )
 
+    def cache_get(self, provider: str, bin_value: str, max_age_days: float = 0) -> Optional[Dict[str, object]]:
+        with self._lock:
+            row = self.connect().execute(
+                "SELECT status, fields_json, fetched_at FROM http_cache WHERE provider = ? AND bin = ?",
+                (provider, bin_value),
+            ).fetchone()
+        if row is None:
+            return None
+        if max_age_days and max_age_days > 0:
+            try:
+                fetched = datetime.strptime(row["fetched_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                    tzinfo=timezone.utc
+                )
+            except ValueError:
+                fetched = None
+            if fetched is not None:
+                age_days = (datetime.now(timezone.utc) - fetched).total_seconds() / 86400
+                if age_days > max_age_days:
+                    return None
+        try:
+            fields = json.loads(row["fields_json"])
+        except (TypeError, json.JSONDecodeError):
+            fields = {}
+        return {"status": row["status"], "fields": fields, "fetched_at": row["fetched_at"]}
+
+    def cache_put(self, provider: str, bin_value: str, status: str, fields: Dict[str, str]) -> None:
+        with self._lock:
+            self.connect().execute(
+                "INSERT INTO http_cache (provider, bin, status, fields_json, fetched_at) "
+                "VALUES (?, ?, ?, ?, ?) ON CONFLICT(provider, bin) DO UPDATE SET "
+                "status=excluded.status, fields_json=excluded.fields_json, fetched_at=excluded.fetched_at",
+                (provider, bin_value, status, json.dumps(fields, sort_keys=True), utc_now()),
+            )
+
+    def cache_size(self) -> int:
+        with self._lock:
+            return int(self.connect().execute("SELECT COUNT(*) AS n FROM http_cache").fetchone()["n"])
+
+    def clear_cache(self, provider: Optional[str] = None) -> int:
+        with self._lock:
+            conn = self.connect()
+            before = conn.execute("SELECT COUNT(*) AS n FROM http_cache").fetchone()["n"]
+            if provider:
+                conn.execute("DELETE FROM http_cache WHERE provider = ?", (provider,))
+            else:
+                conn.execute("DELETE FROM http_cache")
+            after = conn.execute("SELECT COUNT(*) AS n FROM http_cache").fetchone()["n"]
+        return int(before - after)
+
     def stats(self) -> Dict[str, object]:
         with self._lock:
             conn = self.connect()
@@ -238,6 +287,7 @@ class Database:
                 "SELECT COUNT(*) AS n FROM bins WHERE issuer = ?", (UNKNOWN,)
             ).fetchone()["n"]
             dataset_rows = conn.execute("SELECT COUNT(*) AS n FROM dataset_bins").fetchone()["n"]
+            cached = conn.execute("SELECT COUNT(*) AS n FROM http_cache").fetchone()["n"]
         return {
             "total": total,
             "by_status": by_status,
@@ -246,6 +296,7 @@ class Database:
             "avg_confidence": float(avg_row["avg"] or 0.0),
             "unknown_issuer": int(unknown_issuer),
             "dataset_rows": int(dataset_rows),
+            "cached_responses": int(cached),
             "datasets": self.dataset_names(),
             "runs": self.recent_runs(5),
         }

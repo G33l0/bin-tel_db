@@ -84,7 +84,7 @@ class HttpProviderTests(unittest.TestCase):
             "411111", '{"bank": {"name": "Example Bank"}, "scheme": "visa", "prepaid": false}'
         )
         self.assertTrue(response.ok)
-        self.assertEqual(response.fields["network"], "visa")
+        self.assertEqual(response.fields["network"], "Visa")
         self.assertEqual(response.fields["prepaid"], "false")
 
     def test_empty_payload_is_not_found(self):
