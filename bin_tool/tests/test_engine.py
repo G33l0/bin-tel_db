@@ -2,7 +2,7 @@ import unittest
 
 from tests import _context
 from database.models import Status
-from engine import coverage_confidence, reconcile
+from engine import coverage_confidence, reconcile, write_dataset_to_bins
 from providers.base import ProviderResponse
 
 
@@ -76,6 +76,27 @@ class ReconcileTests(unittest.TestCase):
             "confidence"
         ]
         self.assertGreater(double, single)
+
+
+class WriteDatasetTests(unittest.TestCase):
+    def setUp(self):
+        import os, tempfile
+        from database.database import Database
+        self.db = Database(os.path.join(tempfile.mkdtemp(prefix="bintel_"), "t.sqlite3"))
+        self.db.connect()
+
+    def tearDown(self):
+        self.db.close()
+
+    def test_writes_imported_rows_with_coverage_confidence(self):
+        records = [{"bin": "411111", "network": "Visa", "issuer": "Example", "country_code": "US"}]
+        written = write_dataset_to_bins(self.db, records, "ds")
+        self.assertEqual(written, 1)
+        row = self.db.get_bin("411111")
+        self.assertEqual(row["status"], Status.IMPORTED)
+        self.assertEqual(row["source"], "dataset:ds")
+        self.assertEqual(row["issuer"], "Example")
+        self.assertGreater(row["confidence"], 0.0)
 
 
 class CoverageTests(unittest.TestCase):

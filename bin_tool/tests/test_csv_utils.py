@@ -105,6 +105,47 @@ class ExportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             export_rows(self.rows, os.path.join(self.directory, "x.xml"), "xml")
 
+    def test_binlist_data_layout_semicolon(self):
+        path = os.path.join(self.directory, "binlist.csv")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(
+                "BIN;Brand;Type;Category;Issuer;IssuerURL;isCommercial;isPrepaid;CountryCode\n"
+                "411111;visa;debit;classic;Example Bank;www.example.com;false;true;us\n"
+            )
+        row = read_dataset_file(path)[0]
+        self.assertEqual(row["bin"], "411111")
+        self.assertEqual(row["network"], "Visa")
+        self.assertEqual(row["card_type"], "debit")
+        self.assertEqual(row["card_level"], "classic")
+        self.assertEqual(row["issuer_website"], "www.example.com")
+        self.assertEqual(row["commercial"], "false")
+        self.assertEqual(row["prepaid"], "true")
+        self.assertEqual(row["country_code"], "US")
+
+    def test_iin_alpha2_layout(self):
+        path = os.path.join(self.directory, "iin.csv")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(
+                "iin,scheme,level,bank_name,bank_phone,alpha_2,currency\n"
+                "340000,amex,corporate,Demo Financial,+44 20 0000 0000,gb,gbp\n"
+            )
+        row = read_dataset_file(path)[0]
+        self.assertEqual(row["network"], "American Express")
+        self.assertEqual(row["card_level"], "corporate")
+        self.assertEqual(row["issuer"], "Demo Financial")
+        self.assertEqual(row["country_code"], "GB")
+        self.assertEqual(row["currency"], "GBP")
+
+    def test_values_are_cleaned_not_raw(self):
+        path = os.path.join(self.directory, "raw.csv")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("bin,scheme,countrycode,currency,prepaid\n411111,VISA,usa,US Dollar,YES\n")
+        row = read_dataset_file(path)[0]
+        self.assertEqual(row["network"], "Visa")
+        self.assertEqual(row["country_code"], "unknown")
+        self.assertEqual(row["currency"], "unknown")
+        self.assertEqual(row["prepaid"], "true")
+
 
 if __name__ == "__main__":
     unittest.main()

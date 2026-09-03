@@ -1,0 +1,3 @@
+iin,scheme,type,level,bank_name,bank_url,bank_phone,alpha_2,country_name,currency
+340000,amex,credit,corporate,Demo Financial,demo.example.com,+44 20 0000 0000,gb,United Kingdom,gbp
+601100,discover,credit,classic,Demo Bank NA,,,us,United States,usd

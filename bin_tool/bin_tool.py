@@ -20,7 +20,7 @@ except ImportError:
 import config as config_module
 from database.database import Database
 from database.models import Status
-from engine import ValidationEngine
+from engine import ValidationEngine, write_dataset_to_bins
 from providers.base import build_providers
 from ui import colors
 from ui.menu import App, print_record
@@ -128,6 +128,9 @@ def cmd_import(args, config, database) -> int:
         f"[ok]imported {counts['inserted']} row(s) into dataset '{name}'[/ok] "
         f"[muted]({len(records) - len(accepted)} rejected)[/muted]"
     )
+    if args.to_bins:
+        written = write_dataset_to_bins(database, accepted, name)
+        console.print(f"[ok]wrote {written} row(s) into the BIN table (status imported)[/ok]")
     return 0
 
 
@@ -204,6 +207,11 @@ def build_parser() -> argparse.ArgumentParser:
     importer = sub.add_parser("import", help="import a reference BIN dataset (CSV)")
     importer.add_argument("file")
     importer.add_argument("--name", help="dataset name (defaults to the file name)")
+    importer.add_argument(
+        "--to-bins",
+        action="store_true",
+        help="also write the rows into the main BIN table (status imported)",
+    )
     importer.set_defaults(func=cmd_import)
 
     export = sub.add_parser("export", help="export stored records")

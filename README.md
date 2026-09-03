@@ -77,10 +77,23 @@ Green is confirmed, yellow is uncertain or conflicting, red is invalid or error.
 Symbols drop to `OK`/`x` on code pages that cannot render them.
 
 **3. Import BIN Dataset.** Loads a reference dataset (CSV) from `data\imports`
-into the `dataset_bins` table, which the `local_dataset` provider reads.
-Column names are matched against common aliases (`bank`/`issuer`,
-`scheme`/`network`, `countrycode`/`country_code`). Rows can optionally be copied
-into the main BIN table with status `imported`.
+into the `dataset_bins` table, which the `local_dataset` provider reads. Rows
+can optionally be copied into the main BIN table with status `imported`. Values
+are normalised on import (network casing, ISO country and currency codes,
+booleans), so the stored data is consistent regardless of how the file spells
+them.
+
+Column headers are matched against a wide alias set, so the common open BIN
+datasets import without editing. Both of these layouts work as-is:
+
+```
+BIN;Brand;Type;Category;Issuer;IssuerURL;isCommercial;isPrepaid;CountryCode
+iin,scheme,type,level,bank_name,bank_url,bank_phone,alpha_2,currency
+```
+
+The delimiter (comma, semicolon, tab or pipe) is detected automatically. If no
+column maps to a BIN, the import stops with an error naming the accepted BIN
+column names. Sample files in both layouts are in `data\imports`.
 
 **4. Export Results.** Writes to `data\results` as CSV, JSON or SQL. The SQL
 export includes a matching `CREATE TABLE`.
@@ -96,7 +109,7 @@ dataset size, recent runs.
 ```cmd
 python bin_tool.py validate data\input\bins.csv --export data\results\out.csv
 python bin_tool.py validate --only unconfirmed --limit 500
-python bin_tool.py import data\imports\dataset.csv --name acme_2026
+python bin_tool.py import data\imports\dataset.csv --name acme_2026 --to-bins
 python bin_tool.py export data\results\bins.sql --format sql --status discovered
 python bin_tool.py lookup 411111
 python bin_tool.py cache
