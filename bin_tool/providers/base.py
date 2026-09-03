@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from database.models import METADATA_FIELDS
 from utils.validation import (
     UNKNOWN,
+    canonical_network,
     clean_boolean,
     clean_country_code,
     clean_currency,
@@ -19,6 +20,7 @@ NOT_FOUND = "not_found"
 ERROR = "error"
 
 _CLEANERS = {
+    "network": canonical_network,
     "country_code": clean_country_code,
     "currency": clean_currency,
     "prepaid": clean_boolean,
@@ -115,11 +117,12 @@ class BaseProvider:
 def provider_registry() -> Dict[str, type]:
     from providers.local_provider import LocalDatasetProvider
     from providers.offline_provider import OfflineIinRangeProvider
-    from providers.public_provider import HttpJsonProvider
+    from providers.public_provider import BinlistProvider, HttpJsonProvider
 
     return {
         OfflineIinRangeProvider.type_name: OfflineIinRangeProvider,
         LocalDatasetProvider.type_name: LocalDatasetProvider,
+        BinlistProvider.type_name: BinlistProvider,
         HttpJsonProvider.type_name: HttpJsonProvider,
     }
 

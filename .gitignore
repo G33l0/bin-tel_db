@@ -12,3 +12,6 @@ bin_tool/data/*.sqlite3-*
 bin_tool/data/results/*
 bin_tool/data/logs/*
 !bin_tool/data/**/.gitkeep
+
+# Generated on first run
+bin_tool/config.json

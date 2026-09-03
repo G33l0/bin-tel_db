@@ -7,27 +7,61 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence
 
 from database.models import BIN_FIELDS, METADATA_FIELDS
-from utils.validation import UNKNOWN
+from utils.validation import (
+    UNKNOWN,
+    canonical_network,
+    clean_boolean,
+    clean_country_code,
+    clean_currency,
+    clean_value,
+)
 
 BIN_COLUMN_ALIASES = (
-    "bin", "iin", "bin_iin", "bin/iin", "binnumber", "bin_number",
-    "cardbin", "card_bin", "prefix", "iin_prefix", "number",
+    "bin", "iin", "bin_iin", "bin/iin", "biniin", "binnumber", "bin_number",
+    "cardbin", "card_bin", "prefix", "iin_prefix", "iinprefix", "number", "pan_prefix",
 )
 
 DATASET_COLUMN_ALIASES: Dict[str, Sequence[str]] = {
     "bin": BIN_COLUMN_ALIASES,
-    "issuer": ("issuer", "bank", "bank_name", "issuer_name", "issuingbank", "issuing_bank"),
-    "network": ("network", "scheme", "brand", "card_brand", "cardscheme"),
-    "card_type": ("card_type", "type", "cardtype"),
-    "card_level": ("card_level", "level", "tier", "category", "product"),
-    "country": ("country", "country_name", "countryname"),
-    "country_code": ("country_code", "countrycode", "alpha2", "iso_country", "iso2"),
-    "currency": ("currency", "currency_code", "currencycode"),
-    "prepaid": ("prepaid", "is_prepaid"),
-    "commercial": ("commercial", "is_commercial", "business", "corporate"),
-    "issuer_phone": ("issuer_phone", "phone", "bank_phone", "contact_phone"),
-    "issuer_website": ("issuer_website", "website", "url", "bank_url", "bank_website"),
+    "issuer": (
+        "issuer", "bank", "bank_name", "bankname", "issuer_name", "issuername",
+        "issuingbank", "issuing_bank", "institution",
+    ),
+    "network": ("network", "scheme", "brand", "card_brand", "cardbrand", "cardscheme", "vendor"),
+    "card_type": ("card_type", "type", "cardtype", "cardcategory"),
+    "card_level": ("card_level", "cardlevel", "level", "tier", "category", "product", "class"),
+    "country": ("country", "country_name", "countryname", "issuercountry"),
+    "country_code": (
+        "country_code", "countrycode", "alpha2", "alpha_2", "iso_a2", "isoa2",
+        "iso_country", "isocountry", "iso2", "country_iso",
+    ),
+    "currency": ("currency", "currency_code", "currencycode", "ccy"),
+    "prepaid": ("prepaid", "is_prepaid", "isprepaid"),
+    "commercial": (
+        "commercial", "is_commercial", "iscommercial", "business", "corporate", "iscorporate",
+    ),
+    "issuer_phone": (
+        "issuer_phone", "issuerphone", "phone", "bank_phone", "bankphone",
+        "contact_phone", "tel", "telephone",
+    ),
+    "issuer_website": (
+        "issuer_website", "issuerwebsite", "issuerurl", "issuer_url", "website",
+        "url", "bank_url", "bankurl", "bank_website", "web", "homepage",
+    ),
 }
+
+_DATASET_CLEANERS = {
+    "network": canonical_network,
+    "country_code": clean_country_code,
+    "currency": clean_currency,
+    "prepaid": clean_boolean,
+    "commercial": clean_boolean,
+}
+
+
+def _clean_dataset_value(field_name: str, value: str) -> str:
+    cleaner = _DATASET_CLEANERS.get(field_name, clean_value)
+    return cleaner(value)
 
 
 @dataclass
@@ -128,7 +162,7 @@ def read_dataset_file(path: str) -> List[Dict[str, str]]:
         for field_name in METADATA_FIELDS:
             index = mapping.get(field_name)
             value = row[index].strip() if index is not None and index < len(row) else ""
-            record[field_name] = value or UNKNOWN
+            record[field_name] = _clean_dataset_value(field_name, value) if value else UNKNOWN
         records.append(record)
     return records
 

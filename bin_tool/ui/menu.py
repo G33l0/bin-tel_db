@@ -13,7 +13,7 @@ from rich.text import Text
 import config as config_module
 from database.database import Database
 from database.models import BIN_FIELDS, METADATA_FIELDS, STATUS_LABELS, Status
-from engine import ValidationEngine, coverage_confidence
+from engine import ValidationEngine, write_dataset_to_bins
 from providers.base import build_provider, build_providers
 from ui.colors import confidence_style, console, status_style, symbol
 from ui.progress import RunView
@@ -318,21 +318,9 @@ class App:
             self.console.print(f"[warn]{rejected} row(s) rejected on BIN format.[/warn]")
 
         if Confirm.ask("Also copy these rows into the main BIN table?", default=False):
-            stamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-            for record in clean:
-                row: Dict[str, object] = {
-                    "bin": record["bin"],
-                    "bin_length": len(record["bin"]),
-                    "status": Status.IMPORTED,
-                    "source": f"dataset:{dataset_name}",
-                    "checked_at": stamp,
-                }
-                for name in METADATA_FIELDS:
-                    row[name] = record.get(name, UNKNOWN) or UNKNOWN
-                row["confidence"] = coverage_confidence(row)
-                self.database.upsert_bin(row)
+            written = write_dataset_to_bins(self.database, clean, dataset_name)
             self.console.print(
-                f"[ok]{symbol('ok')} {len(clean)} row(s) written to the BIN table.[/ok]"
+                f"[ok]{symbol('ok')} {written} row(s) written to the BIN table.[/ok]"
             )
 
     def action_export(self) -> None:
@@ -508,6 +496,7 @@ class App:
         )
         overview.add_row("Records with unknown issuer", str(stats["unknown_issuer"]))
         overview.add_row("Reference dataset rows", str(stats["dataset_rows"]))
+        overview.add_row("Cached API responses", str(stats.get("cached_responses", 0)))
         self.console.print(overview)
 
         if stats["by_network"]:

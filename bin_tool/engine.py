@@ -266,6 +266,28 @@ class ValidationEngine:
             provider.close()
 
 
+def write_dataset_to_bins(database, records, dataset_name: str) -> int:
+    stamp = utc_stamp()
+    written = 0
+    for record in records:
+        bin_value = str(record.get("bin", "")).strip()
+        if not bin_value:
+            continue
+        row: Dict[str, object] = {
+            "bin": bin_value,
+            "bin_length": len(bin_value),
+            "status": Status.IMPORTED,
+            "source": f"dataset:{dataset_name}",
+            "checked_at": stamp,
+        }
+        for name in METADATA_FIELDS:
+            row[name] = record.get(name, UNKNOWN) or UNKNOWN
+        row["confidence"] = coverage_confidence(row)
+        database.upsert_bin(row)
+        written += 1
+    return written
+
+
 def coverage_confidence(record: Dict[str, object]) -> float:
     total_weight = sum(FIELD_WEIGHTS.values())
     known = sum(

@@ -1,0 +1,3 @@
+BIN;Brand;Type;Category;Issuer;IssuerPhone;IssuerURL;isCommercial;isPrepaid;CountryCode;CountryName;Currency
+411111;visa;debit;classic;Example Bank;+1-800-000-0000;www.example.com;false;false;us;United States;usd
+517805;mastercard;credit;platinum;Sample Bank;;sample.example.de;true;false;de;Germany;eur

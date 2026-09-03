@@ -49,6 +49,15 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "description": "Reference dataset imported with menu option 3.",
         },
         {
+            "name": "binlist",
+            "type": "binlist",
+            "enabled": False,
+            "description": "binlist.net public lookup. No API key. Rate limited; results cached.",
+            "rate_limit_per_second": 0.08,
+            "cache_responses": True,
+            "cache_ttl_days": 0,
+        },
+        {
             "name": "metadata_api",
             "type": "http_json",
             "enabled": False,
@@ -61,6 +70,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "api_key_header": "Authorization",
             "api_key_prefix": "Bearer ",
             "rate_limit_per_second": 1.0,
+            "cache_responses": True,
+            "cache_ttl_days": 0,
             "not_found_status_codes": [404],
             "field_map": {
                 "issuer": ["bank.name", "issuer", "bank"],

@@ -20,7 +20,7 @@ except ImportError:
 import config as config_module
 from database.database import Database
 from database.models import Status
-from engine import ValidationEngine
+from engine import ValidationEngine, write_dataset_to_bins
 from providers.base import build_providers
 from ui import colors
 from ui.menu import App, print_record
@@ -61,21 +61,36 @@ def _normalise_all(values, config):
 
 def cmd_validate(args, config, database) -> int:
     console = colors.console()
-    entries = read_bin_file(args.file)
-    accepted, rejected = _normalise_all([entry.value for entry in entries], config)
-    for value, reason in rejected[:20]:
-        console.print(f"[warn]skipped {value}: {reason}[/warn]")
-    if not accepted:
-        console.print("[bad]No valid BINs found in that file.[/bad]")
-        return 1
+    if args.only:
+        accepted = [str(row["bin"]) for row in database.fetch_bins(args.only)]
+        note = f"backlog:{args.only}"
+        if not accepted:
+            console.print(f"[muted]No stored records with status '{args.only}'.[/muted]")
+            return 1
+    else:
+        if not args.file:
+            console.print("[bad]Give a file, or --only <status> to reuse stored records.[/bad]")
+            return 1
+        entries = read_bin_file(args.file)
+        accepted, rejected = _normalise_all([entry.value for entry in entries], config)
+        for value, reason in rejected[:20]:
+            console.print(f"[warn]skipped {value}: {reason}[/warn]")
+        note = os.path.basename(args.file)
+        if not accepted:
+            console.print("[bad]No valid BINs found in that file.[/bad]")
+            return 1
+
+    if args.limit and args.limit > 0:
+        accepted = accepted[: args.limit]
 
     providers = [p for p in build_providers(config, {"database": database, "validation": config["validation"]})
                  if p.check_ready() is None]
     if not providers:
         console.print("[bad]No usable providers configured.[/bad]")
         return 1
+    console.print(f"[muted]Providers: {', '.join(p.name for p in providers)} | {len(accepted)} BIN(s)[/muted]")
 
-    run_id = database.start_run("validate", len(accepted), os.path.basename(args.file))
+    run_id = database.start_run("validate", len(accepted), note)
     with RunView(len(accepted)) as view:
         engine = ValidationEngine(config, database, providers, view.handle_event)
         try:
@@ -113,6 +128,9 @@ def cmd_import(args, config, database) -> int:
         f"[ok]imported {counts['inserted']} row(s) into dataset '{name}'[/ok] "
         f"[muted]({len(records) - len(accepted)} rejected)[/muted]"
     )
+    if args.to_bins:
+        written = write_dataset_to_bins(database, accepted, name)
+        console.print(f"[ok]wrote {written} row(s) into the BIN table (status imported)[/ok]")
     return 0
 
 
@@ -149,6 +167,17 @@ def cmd_lookup(args, config, database) -> int:
     return 0
 
 
+def cmd_cache(args, config, database) -> int:
+    console = colors.console()
+    if args.clear:
+        removed = database.clear_cache(args.provider)
+        scope = f" for '{args.provider}'" if args.provider else ""
+        console.print(f"[ok]cleared {removed} cached response(s){scope}[/ok]")
+        return 0
+    console.print(f"[info]{database.cache_size()} cached provider response(s)[/info]")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bin_tool",
@@ -161,8 +190,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command")
 
-    validate = sub.add_parser("validate", help="validate the BINs in a CSV/TXT file")
-    validate.add_argument("file")
+    validate = sub.add_parser("validate", help="validate BINs from a file or the stored backlog")
+    validate.add_argument("file", nargs="?", help="CSV/TXT file of BINs (omit when using --only)")
+    validate.add_argument(
+        "--only",
+        choices=[Status.UNCONFIRMED, Status.ERROR, Status.INVALID, Status.IMPORTED],
+        help="re-run stored records with this status instead of reading a file",
+    )
+    validate.add_argument("--limit", type=int, help="process at most this many BINs")
     validate.add_argument("--export", help="write results to this file when finished")
     validate.add_argument(
         "--discovered-only", action="store_true", help="export only discovered records"
@@ -172,6 +207,11 @@ def build_parser() -> argparse.ArgumentParser:
     importer = sub.add_parser("import", help="import a reference BIN dataset (CSV)")
     importer.add_argument("file")
     importer.add_argument("--name", help="dataset name (defaults to the file name)")
+    importer.add_argument(
+        "--to-bins",
+        action="store_true",
+        help="also write the rows into the main BIN table (status imported)",
+    )
     importer.set_defaults(func=cmd_import)
 
     export = sub.add_parser("export", help="export stored records")
@@ -190,6 +230,11 @@ def build_parser() -> argparse.ArgumentParser:
     lookup = sub.add_parser("lookup", help="print one stored record")
     lookup.add_argument("bin")
     lookup.set_defaults(func=cmd_lookup)
+
+    cache = sub.add_parser("cache", help="show or clear the HTTP response cache")
+    cache.add_argument("--clear", action="store_true", help="delete cached responses")
+    cache.add_argument("--provider", help="limit --clear to one provider")
+    cache.set_defaults(func=cmd_cache)
     return parser
 
 
